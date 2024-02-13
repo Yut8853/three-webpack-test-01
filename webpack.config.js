@@ -1,9 +1,6 @@
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
-const ImageMinimizerPlugin = require('image-minimizer-webpack-plugin');
 const path = require('path');
-
-
 
 module.exports = {
   mode: 'development',
@@ -11,7 +8,10 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'bundle.js',
-    assetModuleFilename: 'images/[hash][ext][query]'
+    module: true, // Add this line
+  },
+  experiments: {
+    outputModule: true, // And this line
   },
   devServer: {
     static: './dist',
@@ -19,65 +19,45 @@ module.exports = {
   resolve: {
     extensions: ['.js', '.glsl', '.vs', '.fs','.vert', '.frag','.scss','.sass','.css'],
     alias: {
-      '@assets': path.resolve(__dirname, 'src/assets'), // パスの別名を設定します
+      '@assets': path.resolve(__dirname, 'src/assets'),
     },
   },
   module: {
     rules: [
-      // HTML
       {
         test: /\.html$/i,
         loader: "html-loader",
       },
-      // CSS
+      {
+        test: /\.(png|jpe?g|gif|svg)$/i,
+        type: 'asset/resource',
+        generator: {
+          filename: 'assets/images/[hash][ext][query]'
+        }
+      },
       {
         test: /\.(sass|scss|css)$/,
         use:[
           {
             loader: MiniCssExtractPlugin.loader,
+            options: {
+              publicPath: (resourcePath, context) => {
+                return path.relative(path.dirname(resourcePath), context) + '/';
+              },
+            },
           },
-          {
-            loader: 'css-loader',
-          },
-          {
-            loader: 'sass-loader',
-          },
+          'css-loader',
+          'sass-loader',
         ]
       },
       {
-        //拡張子がsvgを検知したら
-        test: /\.(png|jpeg|jpg|gif|svg|eot|ttf|woff|woff2|webp)$/i,
-        type: 'asset/resource',
-        generator: {
-          filename: 'assets/images/[name][ext]'
-        }
-      },
-      // Javascript
-      {
         test: /\.js$/,
-        // node_modulesは対象外
         exclude: /node_modules/,
-        // トランスコンパイラ
         use: ['babel-loader'],
       },
       {
         test: /\.(glsl|vs|fs|vert|frag)$/,
-        use: [
-          {
-            loader: 'raw-loader',
-            options: {
-              esModule: false,
-            },
-          },
-          {
-            loader: 'glslify-loader',
-            options: {
-              transform: [
-                'glslify-hex'
-              ]
-            }
-          }
-        ]
+        use: ['raw-loader', 'glslify-loader']
       },
     ],
   },
@@ -87,27 +67,10 @@ module.exports = {
       minify: true,
       chunksSortMode: 'auto',
       scriptLoading: 'defer',
+      type: 'module', // add this line
     }),
     new MiniCssExtractPlugin({
       filename: 'assets/css/[name].css',
     }),
   ],
-  optimization: {
-    minimizer: [
-      new ImageMinimizerPlugin({
-        minimizer: {
-          implementation: ImageMinimizerPlugin.squooshMinify,
-          filename: "[name][ext]",
-          options: {
-            encodeOptions: {
-              /* 各種libSquooshのオプション設定 */
-              mozjpeg: {
-                quality: 70,
-              },
-            },
-          },
-        },
-      }),
-    ],
-  },
 };
